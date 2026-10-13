@@ -20,7 +20,7 @@ class Header {
   }
 
   getSignInButton() {
-    return cy.get('header button.header_signin').contains('Sign In');
+    return cy.get('button.header_signin');
   }
 }
 

@@ -1,0 +1,19 @@
+
+{
+  "cars": [
+    { "brand": "BMW", "model": "X5" },
+    { "brand": "BMW", "model": "X6" },
+    { "brand": "BMW", "model": "Z3" },
+    { "brand": "Audi", "model": "TT" },
+    { "brand": "Audi", "model": "R8" },
+    { "brand": "Audi", "model": "Q7" },
+    { "brand": "Ford", "model": "Focus" },
+    { "brand": "Ford", "model": "Mondeo" },
+    { "brand": "Porsche", "model": "Cayenne" },
+    { "brand": "Porsche", "model": "Panamera" },
+    { "brand": "Fiat", "model": "Panda" },
+    { "brand": "Fiat", "model": "Punto" }
+  ],
+  "fuelLiters": 10,
+  "fuelTotalCost": 20
+}
