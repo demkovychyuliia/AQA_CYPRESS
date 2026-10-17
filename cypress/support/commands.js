@@ -9,8 +9,7 @@ Cypress.Commands.add('createExpenseViaApi', (expenseData) => {
       liters: expenseData.liters,
       totalCost: expenseData.totalCost,
       forceMileage: false,
-    },
-    failOnStatusCode: false,
+    },    
   }).then((response) => {
     expect(response.status, 'create expense status').to.equal(200);
     expect(response.body.status).to.equal('ok');
