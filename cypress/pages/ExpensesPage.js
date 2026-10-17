@@ -103,6 +103,10 @@ class ExpensesPage {
     this.getExpensesTable().should('be.visible');
 
     this.getExpenseRows().should(($rows) => {
+      const expectedDate = expenseData.reportedAt
+        ? expenseData.reportedAt.split('-').reverse().join('.')
+        : null;
+
       const expectedMileage = String(expenseData.expenseMileage);
       const expectedLiters = `${expenseData.fuelLiters}L`;
       const expectedCost = Number(expenseData.fuelTotalCost);
@@ -121,6 +125,7 @@ class ExpensesPage {
         );
 
         return (
+          (!expectedDate || cells[0] === expectedDate) &&
           cells[1] === expectedMileage &&
           cells[2] === expectedLiters &&
           actualCost === expectedCost
@@ -129,7 +134,7 @@ class ExpensesPage {
 
       expect(
         matchingRow,
-        'expense row with expected mileage, liters and cost'
+        'expense row with expected date, mileage, liters and cost'
       ).to.exist;
     });
   }
