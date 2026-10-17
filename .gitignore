@@ -2,3 +2,7 @@ node_modules/
 cypress/screenshots/
 cypress/videos/
 env/auth.json
+env/qauto.json
+env/qauto2.json
+cypress/reports/
+cypress/downloads/
