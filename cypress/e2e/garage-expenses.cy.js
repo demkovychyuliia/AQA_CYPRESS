@@ -7,7 +7,7 @@ const ExpensesPage = require('../pages/ExpensesPage');
 
 const { generateCarData } = require('../support/testData');
 
-describe('Garage and fuel expenses', () => {
+describe('Garage and fuel expenses API testing', () => {
   const header = new Header();
   const authPage = new AuthPage();
   const garagePage = new GaragePage();
@@ -33,70 +33,97 @@ describe('Garage and fuel expenses', () => {
     });
   });
 
-  it('should add a car and fuel expenses to it', () => {
+  it('should create a car via UI, verify it via API, create an expense via API and verify it in UI', () => {
     cy.fixture('carData.json').then((fixtureData) => {
       const carData = generateCarData(fixtureData);
 
-      // 1. Create a car in Garage.
+      // 1. Intercept the car creation request.
+      cy.intercept('POST', '**/api/cars').as('createCar');
+
+      // 2. Create a car through the UI.
       garagePage.addCar(carData);
 
-      // 2. Open Fuel expenses.
-      expensesPage.openExpenses();
+      // 3. Validate the response and save the created car ID.
+      cy.wait('@createCar').then(({ response }) => {
+        expect(response, 'car creation response').to.exist;
+        expect(response.statusCode).to.equal(201);
+        expect(response.body.status).to.equal('ok');
 
-      // 3. Verify the default car selected on the page.
-      expensesPage.getCarSelectDropdown()
-        .should('be.visible')
-        .should('contain.text', carData.carName);
+        expect(response.body.data.id).to.be.a('number');
+        expect(response.body.data.brand).to.equal(carData.brand);
+        expect(response.body.data.model).to.equal(carData.model);
+        expect(response.body.data.initialMileage)
+          .to.equal(carData.initialMileage);
 
-      // 4. Open the Add an expense modal.
-      expensesPage.openAddExpenseModal();
+        cy.wrap(response.body.data.id).as('createdCarId');
+      });
 
-      // 5. Verify the default car selected in the form.
-      expensesPage.getExpenseCarSelect()
-        .find('option:selected')
-        .should('have.text', carData.carName);
+      // 4. Verify the created car through the API.
+      cy.get('@createdCarId').then((carId) => {
+        cy.request('GET', '/api/cars').then((response) => {
+          expect(response.status).to.equal(200);
+          expect(response.body.status).to.equal('ok');
 
-      // 6. Fill in and submit the expense form.
-      expensesPage.fillExpenseForm(carData);
-      expensesPage.submitExpenseForm();
+          const cars = response.body.data;
+          expect(cars, 'cars API response data').to.be.an('array');
 
-      // 7. Verify that the modal closes after saving.
-      cy.get('body')
-        .find('#addExpenseCar')
-        .should('not.exist');
+          const createdCar = cars.find((car) => car.id === carId);
 
-      // 8. Verify that the expense is displayed in the table.
-      expensesPage.getExpensesTable().should('be.visible');
+          expect(createdCar, 'created car in API response').to.exist;
+          expect(createdCar.id).to.equal(carId);
+          expect(createdCar.brand).to.equal(carData.brand);
+          expect(createdCar.model).to.equal(carData.model);
+          expect(createdCar.initialMileage)
+            .to.equal(carData.initialMileage);
 
-      expensesPage.getExpenseRows().should(($rows) => {
-        const expectedMileage = String(carData.expenseMileage);
-        const expectedLiters = `${carData.fuelLiters}L`;
-        const expectedCost = Number(carData.fuelTotalCost);
+          // 5. Prepare the expense data.
+          const expenseData = {
+            carId,
+            reportedAt: new Date().toISOString().slice(0, 10),
+            mileage: carData.expenseMileage,
+            liters: carData.fuelLiters,
+            totalCost: carData.fuelTotalCost,
+          };
 
-        const matchingRow = [...$rows].find((row) => {
-          const cells = [...row.querySelectorAll('td')].map((cell) =>
-            cell.innerText.trim()
-          );
+          // 6. Create an expense through the custom API command.
+          cy.createExpenseViaApi(expenseData).then((createdExpense) => {
+            expect(createdExpense.id).to.be.a('number');
+            expect(createdExpense.carId).to.equal(carId);
 
-          if (cells.length < 4) {
-            return false;
-          }
+            // 7. Open Expenses and open the expense form.
+            expensesPage.openExpenses();
+            expensesPage.openAddExpenseModal();
 
-          const actualCost = Number.parseFloat(
-            cells[3].replace(/[^\d.]/g, '')
-          );
+            // 8. Find the option by the actual car ID.
+            expensesPage.getExpenseCarSelect()
+              .should('be.visible')
+              .find('option')
+              .then(($options) => {
+                const matchingOption = [...$options].find((option) => {
+                  return option.value.endsWith(`: ${carId}`);
+                });
 
-          return (
-            cells[1] === expectedMileage &&
-            cells[2] === expectedLiters &&
-            actualCost === expectedCost
-          );
+                expect(
+                  matchingOption,
+                  `option for car ID ${carId}`
+                ).to.exist;
+
+                // Select the exact option value, including its index prefix.
+                expensesPage.getExpenseCarSelect()
+                  .select(matchingOption.value);
+              });
+
+            // 9. Close the modal without creating a duplicate expense.
+            expensesPage.closeAddExpenseModal();
+
+            // 10. Verify the expense created through API in the UI.
+            expensesPage.verifyExpenseInTable({
+              expenseMileage: createdExpense.mileage,
+              fuelLiters: createdExpense.liters,
+              fuelTotalCost: createdExpense.totalCost,
+            });
+          });
         });
-
-        expect(
-          matchingRow,
-          'expense row with expected mileage, liters and cost'
-        ).to.exist;
       });
     });
   });
